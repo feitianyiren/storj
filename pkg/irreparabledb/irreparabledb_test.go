@@ -113,32 +113,36 @@ func TestCreateWithRmtSegInfo(t *testing.T) {
 	assert.EqualValues(t, repairAttemptCount, dbrmtsegInfo.RepairAttemptCount, repairAttemptCount)
 }
 
-// func TestGetExists(t *testing.T) {
-// 	dbPath := getDBPath()
-// 	statdb, db, err := getServerAndDB(dbPath)
-// 	assert.NoError(t, err)
+func TestGetExists(t *testing.T) {
+	dbPath := getDBPath()
+	irrdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
 
-// 	apiKey := []byte("")
-// 	nodeID := []byte("testnodeid")
+	apiKey := []byte("")
+	rmtsegkey := []byte("irreparableremotesegkey")
+	rmtsegval := []byte("irreparableremotesegval")
+	piecesLost := int64(10)
+	damagedsegUnixSec := time.Now().Unix()
+	repairAttemptCount := int64(10)
 
-// 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
-// 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	err = createRmtSegInfo(ctx, db, rmtsegkey, rmtsegval, piecesLost, damagedsegUnixSec, repairAttemptCount)
+	assert.NoError(t, err)
 
-// 	err = createNode(ctx, db, nodeID, auditSuccessCount, totalAuditCount, auditRatio,
-// 		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
-// 	assert.NoError(t, err)
+	getReq := &pb.GetRequest{
+		RmtSegKey: rmtsegkey,
+		APIKey:    apiKey,
+	}
+	resp, err := irrdb.Get(ctx, getReq)
+	assert.NoError(t, err)
 
-// 	getReq := &pb.GetRequest{
-// 		NodeId: nodeID,
-// 		APIKey: apiKey,
-// 	}
-// 	resp, err := statdb.Get(ctx, getReq)
-// 	assert.NoError(t, err)
+	dbrmtsegInfo := resp.GetRmtseginfo()
 
-// 	stats := resp.Stats
-// 	assert.EqualValues(t, auditRatio, stats.AuditSuccessRatio)
-// 	assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
-// }
+	assert.EqualValues(t, rmtsegkey, dbrmtsegInfo.RmtSegKey, rmtsegkey)
+	assert.EqualValues(t, rmtsegval, dbrmtsegInfo.RmtSegVal, rmtsegval)
+	assert.EqualValues(t, piecesLost, dbrmtsegInfo.RmtSegLostPiecesCount, piecesLost)
+	assert.EqualValues(t, damagedsegUnixSec, dbrmtsegInfo.RmtSegRepairUnixSec, damagedsegUnixSec)
+	assert.EqualValues(t, repairAttemptCount, dbrmtsegInfo.RmtSegRepairAttemptCount, repairAttemptCount)
+}
 
 // func TestGetDoesNotExist(t *testing.T) {
 // 	dbPath := getDBPath()
