@@ -39,9 +39,12 @@ type Overlay struct {
 
 // Options contains parameters for selecting nodes
 type Options struct {
-	Amount   int
-	Space    int64
-	Excluded []dht.NodeID
+	Amount       int
+	Space        int64
+	Uptime       float64
+	AuditSuccess float64
+	AuditCount   int64
+	Excluded     []dht.NodeID
 }
 
 // NewOverlayClient returns a new intialized Overlay Client
@@ -66,11 +69,16 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	for _, id := range op.Excluded {
 		exIDs = append(exIDs, id.String())
 	}
-	// TODO(coyle): We will also need to communicate with the reputation service here
+
 	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
 			Amount:        int64(op.Amount),
 			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space},
+			MinReputation: &pb.NodeRep{
+				UptimeRatio:       op.Uptime,
+				AuditSuccessRatio: op.AuditSuccess,
+				AuditCount:        op.AuditCount,
+			},
 			ExcludedNodes: exIDs,
 		},
 	})

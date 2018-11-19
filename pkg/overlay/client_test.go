@@ -65,24 +65,43 @@ func TestChoose(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	defaultRep := &pb.NodeRep{
+		UptimeRatio:       1,
+		AuditSuccessRatio: 1,
+		AuditCount:        20,
+	}
 	cases := []struct {
-		limit    int
-		space    int64
-		allNodes []*pb.Node
-		excluded []dht.NodeID
+		limit        int
+		space        int64
+		uptime       float64
+		auditSuccess float64
+		auditCount   int64
+		allNodes     []*pb.Node
+		excluded     []dht.NodeID
 	}{
 		{
-			limit: 4,
-			space: 0,
+			limit:        4,
+			space:        0,
+			uptime:       1,
+			auditSuccess: 1,
+			auditCount:   10,
 			allNodes: func() []*pb.Node {
-				n1 := &pb.Node{Id: "n1"}
-				n2 := &pb.Node{Id: "n2"}
-				n3 := &pb.Node{Id: "n3"}
-				n4 := &pb.Node{Id: "n4"}
-				n5 := &pb.Node{Id: "n5"}
-				n6 := &pb.Node{Id: "n6"}
-				n7 := &pb.Node{Id: "n7"}
-				n8 := &pb.Node{Id: "n8"}
+				n1 := &pb.Node{Id: "n1", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.1"}}
+				n2 := &pb.Node{Id: "n2", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.2"}}
+				n3 := &pb.Node{Id: "n3", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.3"}}
+				n4 := &pb.Node{Id: "n4", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.4"}}
+				n5 := &pb.Node{Id: "n5", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.5"}}
+				n6 := &pb.Node{Id: "n6", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.6"}}
+				n7 := &pb.Node{Id: "n7", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.7"}}
+				n8 := &pb.Node{Id: "n8", Reputation: defaultRep,
+					Address: &pb.NodeAddress{Address: "127.0.0.8"}}
 				return []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
 			}(),
 			excluded: func() []dht.NodeID {
@@ -131,7 +150,14 @@ func TestChoose(t *testing.T) {
 		assert.True(t, ok)
 		assert.NotEmpty(t, overlay.client)
 
-		newNodes, err := oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
+		newNodes, err := oc.Choose(ctx, Options{
+			Amount:       v.limit,
+			Space:        v.space,
+			Uptime:       v.uptime,
+			AuditSuccess: v.auditSuccess,
+			AuditCount:   v.auditCount,
+			Excluded:     v.excluded,
+		})
 		assert.NoError(t, err)
 		for _, new := range newNodes {
 			for _, ex := range v.excluded {

@@ -66,21 +66,32 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
+	minRep := opts.GetMinReputation()
 
 	var start storage.Key
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, excluded)
+		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, minRep, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		if len(nodes) <= 0 {
+		resultNodes := []*pb.Node{}
+		usedAddrs := make(map[string]bool)
+		for _, n := range nodes {
+			addr := n.Address.GetAddress()
+			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
+			if !usedAddrs[addr] {
+				resultNodes = append(resultNodes, n)
+				usedAddrs[addr] = true
+			}
+		}
+		if len(resultNodes) <= 0 {
 			break
 		}
 
-		result = append(result, nodes...)
+		result = append(result, resultNodes...)
 
 		if len(result) >= int(maxNodes) || start == nil {
 			break
@@ -121,7 +132,10 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded []string) ([]*pb.Node, storage.Key, error) {
+// TODO(moby) maybe use options struct instead of having so many args
+func (o *Server) populate(ctx context.Context, starting storage.Key,
+	maxNodes, restrictedBandwidth, restrictedSpace int64,
+	minReputation *pb.NodeRep, excluded []string) ([]*pb.Node, storage.Key, error) {
 	limit := int(maxNodes * 2)
 	keys, err := o.cache.DB.List(starting, limit)
 	if err != nil {
@@ -143,9 +157,13 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 
 	for _, v := range nodes {
 		rest := v.GetRestrictions()
+		rep := v.GetReputation() 
 
 		if rest.GetFreeBandwidth() < restrictedBandwidth ||
 			rest.GetFreeDisk() < restrictedSpace ||
+			rep.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
+			rep.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
+			rep.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
 			continue
 		}
