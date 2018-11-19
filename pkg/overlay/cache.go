@@ -85,8 +85,13 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(nodeID string, value pb.Node) error {
-	data, err := proto.Marshal(&value)
+func (o *Cache) Put(ctx context.Context, nodeID string, value pb.Node) error {
+	n, err := o.getNodeRep(ctx, &value)
+	if err != nil {
+		return err
+	}
+
+	data, err := proto.Marshal(n)
 	if err != nil {
 		return err
 	}
@@ -105,12 +110,17 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			zap.L().Info("Node find failed", zap.String("nodeID", v.Id))
 			continue
 		}
-		n, err := proto.Marshal(&found)
+
+		n, err := o.getNodeRep(ctx, &found)
+		if err != nil {
+			return err
+		}
+		data, err := proto.Marshal(n)
 		if err != nil {
 			zap.L().Error("Node marshall failed", zap.String("nodeID", v.Id))
 			continue
 		}
-		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
+		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), data); err != nil {
 			zap.L().Error("Node cache put failed", zap.String("nodeID", v.Id))
 			continue
 		}
@@ -158,12 +168,12 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 	for _, n := range nodes {
-		pinged, err := o.DHT.Ping(ctx, *n)
+		pinged, err := o.pingNode(ctx, n)
 		if err != nil {
 			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
 			continue
 		}
-		data, err := proto.Marshal(&pinged)
+		data, err := proto.Marshal(pinged)
 		if err != nil {
 			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
 			continue
@@ -188,4 +198,48 @@ func randomID() ([]byte, error) {
 	result := make([]byte, 64)
 	_, err := rand.Read(result)
 	return result, err
+}
+
+// getNodeRep gets a node's stats from statdb and returns a node with reputation attached
+func (o *Cache) getNodeRep(ctx context.Context, n *pb.Node) (*pb.Node, error) {
+	stats, err := o.StatDB.CreateEntryIfNotExists(ctx, node.IDFromString(n.Id).Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	n.Reputation = &pb.NodeRep{
+		UptimeRatio:       stats.UptimeRatio,
+		AuditSuccessRatio: stats.AuditSuccessRatio,
+		AuditCount:        stats.AuditCount,
+	}
+
+	return n, err
+}
+
+// pingNode pings a node, updates its uptime stats in statdb,
+// and returns the node with reputation attached
+func (o *Cache) pingNode(ctx context.Context, n *pb.Node) (*pb.Node, error) {
+	id := node.ID(n.Id)
+
+	pinged, err := o.DHT.Ping(ctx, *n)
+	if err != nil {
+		_, err := o.StatDB.UpdateUptime(ctx, id.Bytes(), false)
+		if err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	stats, err := o.StatDB.UpdateUptime(ctx, id.Bytes(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	pinged.Reputation = &pb.NodeRep{
+		UptimeRatio:       stats.UptimeRatio,
+		AuditSuccessRatio: stats.AuditSuccessRatio,
+		AuditCount:        stats.AuditCount,
+	}
+
+	return &pinged, nil
 }

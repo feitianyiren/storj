@@ -51,6 +51,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, err
 	}
 
+	// TODO(moby) update statdb here
+	
 	options := append([]grpc.DialOption{dialOpt}, opts...)
 	return grpc.Dial(node.GetAddress().Address, options...)
 }

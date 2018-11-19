@@ -25,11 +25,11 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 	cache := overlay.Cache{DB: store, StatDB: sdbclient.NewMockClient()}
 
 	{ // Put
-		err := cache.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
+		err := cache.Put(ctx, "valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = cache.Put("valid2", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
+		err = cache.Put(ctx, "valid2", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
 		if err != nil {
 			t.Fatal(err)
 		}
