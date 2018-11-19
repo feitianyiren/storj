@@ -51,3 +51,19 @@ message GetResponse {
   RmtSegInfo rmtseginfo = 1;
   Status status = 2;
 }
+
+// DeleteRequest is a request message for the Delete rpc call
+message DeleteRequest {
+  RmtSegInfo rmtseginfo = 1;
+  bytes APIKey = 2;
+}
+
+// DeleteRequest is a response message for the Delete rpc call
+message DeleteResponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+
+  Status status = 1;
+}
