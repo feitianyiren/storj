@@ -5,6 +5,7 @@ CREATE TABLE irreparabledbs (
 	segmentval BLOB NOT NULL,
 	pieces_lost_count INTEGER NOT NULL,
 	seg_damaged_unix_sec INTEGER NOT NULL,
+	seg_created_at TIMESTAMP NOT NULL,
 	repair_attempt_count INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,

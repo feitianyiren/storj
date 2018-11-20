@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/overlay"
 	mock "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
@@ -25,8 +26,9 @@ type Config struct {
 }
 
 // Initialize a Checker struct
-func (c Config) initialize(ctx context.Context) (Checker, error) {
+func (c Config) initialize(ctx context.Context, server *provider.Provider) (Checker, error) {
 	pdb := pointerdb.LoadFromContext(ctx)
+	irrdb := irreparabledb.LoadFromContext(ctx)
 	var o pb.OverlayServer
 	x := overlay.LoadServerFromContext(ctx)
 	if x == nil {
@@ -39,12 +41,13 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, repairQueue, o, 0, zap.L(), c.Interval), nil
+
+	return newChecker(pdb, repairQueue, o, irrdb, 0, zap.L(), c.Interval)
 }
 
 // Run runs the checker with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	check, err := c.initialize(ctx)
+	check, err := c.initialize(ctx, server)
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,8 @@ package irrdbclient
 
 import (
 	"context"
+
+	"storj.io/storj/pkg/pb"
 )
 
 // MockIrreparableDB creates a noop Mock Irreparable Client
@@ -18,7 +20,7 @@ func NewMockClient() Client {
 // a compiler trick to make sure *MockIrreparableDB implements Client
 var _ Client = (*MockIrreparableDB)(nil)
 
-// Create is used for creating a new entry in the stats db with default reputation
-func (irrdb *MockIrreparableDB) Create(ctx context.Context, rmtsegkey []byte, rmtsegval []byte) (err error) {
+// Put is used for creating a new entry in the stats db with default reputation
+func (irrdb *MockIrreparableDB) Put(ctx context.Context, req *pb.PutIrrSegRequest) (err error) {
 	return nil
 }

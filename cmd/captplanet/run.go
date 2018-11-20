@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/inspector"
+	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
@@ -44,6 +45,7 @@ type Satellite struct {
 	Repairer    repairer.Config
 	Audit       audit.Config
 	StatDB      statdb.Config
+	Irreparable irreparabledb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 }
@@ -107,6 +109,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.StatDB,
+			runCfg.Satellite.Irreparable,
 			runCfg.Satellite.Overlay,
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Checker,

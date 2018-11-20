@@ -5,6 +5,7 @@ package irreparabledb
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -13,7 +14,7 @@ import (
 
 	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/irreparabledb/dbx"
-	pb "storj.io/storj/pkg/irreparabledb/proto"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/auth"
 )
 
@@ -53,39 +54,45 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	return nil
 }
 
+// Put a db entry for the provided remote segment info
+func (s *Server) Put(ctx context.Context, putReq *pb.PutIrrSegRequest) (resp *pb.PutIrrSegResponse, err error) {
+	return s.Create(ctx, putReq)
+}
+
 // Create a db entry for the provided remote segment info
-func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
+func (s *Server) Create(ctx context.Context, putReq *pb.PutIrrSegRequest) (resp *pb.PutIrrSegResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering irreparabledb Create")
 
-	APIKeyBytes := createReq.APIKey
+	APIKeyBytes := putReq.APIKey
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 
-	info := createReq.Rmtseginfo
+	info := putReq.Info
 	_, err = s.DB.Create_Irreparabledb(
 		ctx,
-		dbx.Irreparabledb_Segmentkey(info.RmtSegKey),
-		dbx.Irreparabledb_Segmentval(info.RmtSegVal),
-		dbx.Irreparabledb_PiecesLostCount(info.RmtSegLostPiecesCount),
-		dbx.Irreparabledb_SegDamagedUnixSec(info.RmtSegRepairUnixSec),
-		dbx.Irreparabledb_RepairAttemptCount(info.RmtSegRepairAttemptCount),
+		dbx.Irreparabledb_Segmentkey(info.Key),
+		dbx.Irreparabledb_Segmentval(info.Val),
+		dbx.Irreparabledb_PiecesLostCount(info.LostPiecesCount),
+		dbx.Irreparabledb_SegDamagedUnixSec(info.RepairUnixSec),
+		dbx.Irreparabledb_SegCreatedAt(time.Unix(info.RepairUnixSec, 0)),
+		dbx.Irreparabledb_RepairAttemptCount(info.RepairAttemptCount),
 	)
 	if err != nil {
-		return &pb.CreateResponse{
-			Status: pb.CreateResponse_FAIL,
+		return &pb.PutIrrSegResponse{
+			Status: pb.PutIrrSegResponse_FAIL,
 		}, status.Errorf(codes.Internal, err.Error())
 	}
 
-	s.logger.Debug("created in the db: " + string(info.RmtSegKey))
-	return &pb.CreateResponse{
-		Status: pb.CreateResponse_OK,
+	s.logger.Debug("created in the db: " + string(info.Key))
+	return &pb.PutIrrSegResponse{
+		Status: pb.PutIrrSegResponse_OK,
 	}, nil
 }
 
 // Get a irreparable's segment info from the db
-func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+func (s *Server) Get(ctx context.Context, getReq *pb.GetIrrSegRequest) (resp *pb.GetIrrSegReponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering irreparabaledb Get")
 
@@ -95,26 +102,26 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 		return nil, err
 	}
 
-	dbSegInfo, err := s.DB.Get_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(getReq.GetRmtSegKey()))
+	dbSegInfo, err := s.DB.Get_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(getReq.GetKey()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey:                dbSegInfo.Segmentkey,
-		RmtSegVal:                dbSegInfo.Segmentval,
-		RmtSegLostPiecesCount:    dbSegInfo.PiecesLostCount,
-		RmtSegRepairUnixSec:      dbSegInfo.SegDamagedUnixSec,
-		RmtSegRepairAttemptCount: dbSegInfo.RepairAttemptCount,
+		Key:                dbSegInfo.Segmentkey,
+		Val:                dbSegInfo.Segmentval,
+		LostPiecesCount:    dbSegInfo.PiecesLostCount,
+		RepairUnixSec:      dbSegInfo.SegDamagedUnixSec,
+		RepairAttemptCount: dbSegInfo.RepairAttemptCount,
 	}
-	return &pb.GetResponse{
-		Rmtseginfo: rmtseginfo,
-		Status:     pb.GetResponse_OK,
+	return &pb.GetIrrSegReponse{
+		Info:   rmtseginfo,
+		Status: pb.GetIrrSegReponse_OK,
 	}, nil
 }
 
 // Delete a irreparable's segment info from the db
-func (s *Server) Delete(ctx context.Context, delReq *pb.DeleteRequest) (resp *pb.DeleteResponse, err error) {
+func (s *Server) Delete(ctx context.Context, delReq *pb.DeleteIrrSegRequest) (resp *pb.DeleteIrrSegResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering irreparabaledb Delete")
 
@@ -124,12 +131,12 @@ func (s *Server) Delete(ctx context.Context, delReq *pb.DeleteRequest) (resp *pb
 		return nil, err
 	}
 
-	_, err = s.DB.Delete_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(delReq.GetRmtSegKey()))
+	_, err = s.DB.Delete_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(delReq.GetKey()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.DeleteResponse{
-		Status: pb.DeleteResponse_OK,
+	return &pb.DeleteIrrSegResponse{
+		Status: pb.DeleteIrrSegResponse_OK,
 	}, nil
 }

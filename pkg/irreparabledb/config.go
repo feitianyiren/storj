@@ -8,14 +8,21 @@ import (
 
 	"go.uber.org/zap"
 
-	pb "storj.io/storj/pkg/irreparabledb/proto"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
 
+// CtxKeyIrreparabledb Used as pointerdb key
+type CtxKeyIrreparabledb int
+
+const (
+	ctxKey CtxKeyIrreparabledb = iota
+)
+
 // Config is a configuration struct that is everything you need to start a
-// StatDB responsibility
+// irreparabale segment db responsibility
 type Config struct {
-	DatabaseURL    string `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
+	DatabaseURL    string `help:"the database connection string to use" default:"$CONFDIR/irreparable.db"`
 	DatabaseDriver string `help:"the database driver to use" default:"sqlite3"`
 }
 
@@ -26,7 +33,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 		return err
 	}
 
-	pb.RegisterIrreparableDBServer(server.GRPC(), ns)
+	pb.RegisterIrrSegDBServer(server.GRPC(), ns)
 
 	return server.Run(ctx)
+}
+
+// LoadFromContext gives access to the irreparabledb server from the context, or returns nil
+func LoadFromContext(ctx context.Context) *Server {
+	if v, ok := ctx.Value(ctxKey).(*Server); ok {
+		return v
+	}
+	return nil
 }

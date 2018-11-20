@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 
 	dbx "storj.io/storj/pkg/irreparabledb/dbx"
-	pb "storj.io/storj/pkg/irreparabledb/proto"
+	"storj.io/storj/pkg/pb"
 )
 
 var (
 	ctx = context.Background()
 )
 
-func TestCreateDoesNotExist(t *testing.T) {
+func TestPutDoesNotExist(t *testing.T) {
 	dbPath := getDBPath()
 	irrdb, _, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
@@ -30,20 +30,20 @@ func TestCreateDoesNotExist(t *testing.T) {
 	rmtsegkey := []byte("irreparableremotesegkey")
 	rmtsegval := []byte("irreparableremotesegval")
 	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey: rmtsegkey,
-		RmtSegVal: rmtsegval,
+		Key: rmtsegkey,
+		Val: rmtsegval,
 	}
-	createReq := &pb.CreateRequest{
-		Rmtseginfo: rmtseginfo,
-		APIKey:     apiKey,
+	createReq := &pb.PutIrrSegRequest{
+		Info:   rmtseginfo,
+		APIKey: apiKey,
 	}
-	resp, err := irrdb.Create(ctx, createReq)
+	resp, err := irrdb.Put(ctx, createReq)
 	assert.NoError(t, err)
 	status := resp.Status
 	assert.EqualValues(t, 1, status)
 }
 
-func TestCreateExists(t *testing.T) {
+func TestPutExists(t *testing.T) {
 	dbPath := getDBPath()
 	irrdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
@@ -59,18 +59,18 @@ func TestCreateExists(t *testing.T) {
 	assert.NoError(t, err)
 
 	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey:                rmtsegkey,
-		RmtSegVal:                rmtsegval,
-		RmtSegLostPiecesCount:    piecesLost,
-		RmtSegRepairUnixSec:      damagedsegUnixSec,
-		RmtSegRepairAttemptCount: repairAttemptCount,
+		Key:                rmtsegkey,
+		Val:                rmtsegval,
+		LostPiecesCount:    piecesLost,
+		RepairUnixSec:      damagedsegUnixSec,
+		RepairAttemptCount: repairAttemptCount,
 	}
-	createReq := &pb.CreateRequest{
-		Rmtseginfo: rmtseginfo,
-		APIKey:     apiKey,
+	createReq := &pb.PutIrrSegRequest{
+		Info:   rmtseginfo,
+		APIKey: apiKey,
 	}
 
-	_, err = irrdb.Create(ctx, createReq)
+	_, err = irrdb.Put(ctx, createReq)
 	assert.Error(t, err)
 }
 
@@ -87,18 +87,18 @@ func TestCreateWithRmtSegInfo(t *testing.T) {
 	repairAttemptCount := int64(10)
 
 	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey:                rmtsegkey,
-		RmtSegVal:                rmtsegval,
-		RmtSegLostPiecesCount:    piecesLost,
-		RmtSegRepairUnixSec:      damagedsegUnixSec,
-		RmtSegRepairAttemptCount: repairAttemptCount,
+		Key:                rmtsegkey,
+		Val:                rmtsegval,
+		LostPiecesCount:    piecesLost,
+		RepairUnixSec:      damagedsegUnixSec,
+		RepairAttemptCount: repairAttemptCount,
 	}
-	createReq := &pb.CreateRequest{
-		Rmtseginfo: rmtseginfo,
-		APIKey:     apiKey,
+	createReq := &pb.PutIrrSegRequest{
+		Info:   rmtseginfo,
+		APIKey: apiKey,
 	}
 
-	resp, err := irrdb.Create(ctx, createReq)
+	resp, err := irrdb.Put(ctx, createReq)
 	assert.NoError(t, err)
 	status := resp.Status
 	assert.EqualValues(t, 1, status)
@@ -128,20 +128,20 @@ func TestGetExists(t *testing.T) {
 	err = createRmtSegInfo(ctx, db, rmtsegkey, rmtsegval, piecesLost, damagedsegUnixSec, repairAttemptCount)
 	assert.NoError(t, err)
 
-	getReq := &pb.GetRequest{
-		RmtSegKey: rmtsegkey,
-		APIKey:    apiKey,
+	getReq := &pb.GetIrrSegRequest{
+		Key:    rmtsegkey,
+		APIKey: apiKey,
 	}
 	resp, err := irrdb.Get(ctx, getReq)
 	assert.NoError(t, err)
 
-	dbrmtsegInfo := resp.GetRmtseginfo()
+	dbrmtsegInfo := resp.GetInfo()
 
-	assert.EqualValues(t, rmtsegkey, dbrmtsegInfo.RmtSegKey, rmtsegkey)
-	assert.EqualValues(t, rmtsegval, dbrmtsegInfo.RmtSegVal, rmtsegval)
-	assert.EqualValues(t, piecesLost, dbrmtsegInfo.RmtSegLostPiecesCount, piecesLost)
-	assert.EqualValues(t, damagedsegUnixSec, dbrmtsegInfo.RmtSegRepairUnixSec, damagedsegUnixSec)
-	assert.EqualValues(t, repairAttemptCount, dbrmtsegInfo.RmtSegRepairAttemptCount, repairAttemptCount)
+	assert.EqualValues(t, rmtsegkey, dbrmtsegInfo.Key, rmtsegkey)
+	assert.EqualValues(t, rmtsegval, dbrmtsegInfo.Val, rmtsegval)
+	assert.EqualValues(t, piecesLost, dbrmtsegInfo.LostPiecesCount, piecesLost)
+	assert.EqualValues(t, damagedsegUnixSec, dbrmtsegInfo.RepairUnixSec, damagedsegUnixSec)
+	assert.EqualValues(t, repairAttemptCount, dbrmtsegInfo.RepairAttemptCount, repairAttemptCount)
 }
 
 func TestDeleteExists(t *testing.T) {
@@ -159,23 +159,23 @@ func TestDeleteExists(t *testing.T) {
 	err = createRmtSegInfo(ctx, db, rmtsegkey, rmtsegval, piecesLost, damagedsegUnixSec, repairAttemptCount)
 	assert.NoError(t, err)
 
-	delReq := &pb.DeleteRequest{
-		RmtSegKey: rmtsegkey,
-		APIKey:    apiKey,
+	delReq := &pb.DeleteIrrSegRequest{
+		Key:    rmtsegkey,
+		APIKey: apiKey,
 	}
 	resp, err := irrdb.Delete(ctx, delReq)
 	assert.NoError(t, err)
 
 	status := resp.GetStatus()
-	assert.EqualValues(t, pb.DeleteResponse_OK, status)
+	assert.EqualValues(t, pb.DeleteIrrSegResponse_OK, status)
 }
 
 func getDBPath() string {
 	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
 }
 
-func getServerAndDB(path string) (irreparabledb *Server, db *dbx.DB, err error) {
-	irreparabledb, err = NewServer("sqlite3", path, zap.NewNop())
+func getServerAndDB(path string) (s *Server, db *dbx.DB, err error) {
+	s, err = NewServer("sqlite3", path, zap.NewNop())
 	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
@@ -183,7 +183,7 @@ func getServerAndDB(path string) (irreparabledb *Server, db *dbx.DB, err error) 
 	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
-	return irreparabledb, db, err
+	return s, db, err
 }
 
 func createRmtSegInfo(ctx context.Context, db *dbx.DB, rmtsegkey []byte, rmtsegval []byte,
@@ -194,6 +194,7 @@ func createRmtSegInfo(ctx context.Context, db *dbx.DB, rmtsegkey []byte, rmtsegv
 		dbx.Irreparabledb_Segmentval(rmtsegval),
 		dbx.Irreparabledb_PiecesLostCount(piecesLost),
 		dbx.Irreparabledb_SegDamagedUnixSec(damagedsegUnixSec),
+		dbx.Irreparabledb_SegCreatedAt(time.Unix(damagedsegUnixSec, 0)),
 		dbx.Irreparabledb_RepairAttemptCount(repairAttemptCount),
 	)
 

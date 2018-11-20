@@ -6,6 +6,7 @@ model irreparabledb (
 	field segmentval blob
 	field pieces_lost_count int64 (updatable)
 	field seg_damaged_unix_sec int64 (updatable)
+	field seg_created_at timestamp ( updatable )
 	field repair_attempt_count int64 (updatable)
 
 	field created_at timestamp ( autoinsert )

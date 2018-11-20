@@ -1,0 +1,72 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package irreparabledb;
+
+// IrrSegDB Irreparable segment DB defines the interface for retrieving and updating irreparable segments 
+service IrrSegDB {
+  // Put a db entry for the provided segment info 
+  rpc Put(PutIrrSegRequest) returns (PutIrrSegResponse);
+}
+
+// RmtSegInfo is info about a single  stored in the irreparable db
+message RmtSegInfo {
+  bytes key = 1;  // Remote segment path info
+  bytes val = 2;  // Remote segment remotepiece info
+  int64 lost_pieces_count = 3; // Number of remote segment lost pieces 
+  int64 repair_unix_sec = 4; // Remote segment first repair attempt in unix time
+  int64 repair_attempt_count = 6; // Number of remote segment reapir attempts 
+}
+
+// PutIrrSegRequest is a request message for the Put rpc call
+message PutIrrSegRequest {
+  RmtSegInfo info = 1;
+  bytes APIKey = 2;
+}
+
+// PutIrrSegResponse is a response message for the Put rpc call
+message PutIrrSegResponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+  RmtSegInfo info = 1;
+  Status status = 2;
+}
+
+// GetIrrSegRequest is a request message for the Get rpc call
+message GetIrrSegRequest {
+  bytes key = 1; 
+  bytes APIKey = 2;
+}
+
+// GetIrrSegReponse is a response message for the Get rpc call
+message GetIrrSegReponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+
+  RmtSegInfo info = 1;
+  Status status = 2;
+}
+
+// DeleteRequest is a request message for the Delete rpc call
+message DeleteIrrSegRequest {
+  bytes key = 1; 
+  bytes APIKey = 2;
+}
+
+// DeleteIrrSegResponse is a response message for the Delete rpc call
+message DeleteIrrSegResponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+
+  RmtSegInfo info = 1;
+  Status status = 2;
+}

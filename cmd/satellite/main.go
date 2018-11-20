@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -61,13 +62,14 @@ var (
 	}
 
 	runCfg struct {
-		Identity  provider.IdentityConfig
-		Kademlia  kademlia.Config
-		PointerDB pointerdb.Config
-		Overlay   overlay.Config
-		StatDB    statdb.Config
-		Checker   checker.Config
-		Repairer  repairer.Config
+		Identity      provider.IdentityConfig
+		Kademlia      kademlia.Config
+		PointerDB     pointerdb.Config
+		Overlay       overlay.Config
+		StatDB        statdb.Config
+		IrreparableDB irreparabledb.Config
+		Checker       checker.Config
+		Repairer      repairer.Config
 
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
@@ -108,6 +110,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.PointerDB,
 		runCfg.Overlay,
 		runCfg.StatDB,
+		runCfg.IrreparableDB,
 		runCfg.Checker,
 		runCfg.Repairer,
 		// runCfg.Audit,
