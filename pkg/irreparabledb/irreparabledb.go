@@ -5,32 +5,34 @@ package irreparabledb
 
 import (
 	"context"
-	"time"
-
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/irreparabledb/dbx"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/auth"
+	"storj.io/storj/pkg/utils"
 )
 
-var (
-	mon = monkit.Package()
-)
-
-// Server implements the statdb RPC service
-type Server struct {
-	DB     *dbx.DB
-	logger *zap.Logger
+// Database implements the irreparable RPC service
+type Database struct {
+	db *dbx.DB
 }
 
-// NewServer creates instance of Server
-func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
-	db, err := dbx.Open(driver, source)
+// RemoteSegmentInfo is info about a single entry stored in the irreparable db
+type RemoteSegmentInfo struct {
+	EncryptedSegmentPath   []byte
+	EncryptedSegmentDetail []byte //contains marshalled info of pb.Pointer
+	LostPiecesCount        int64
+	RepairUnixSec          int64
+	RepairAttemptCount     int64
+}
+
+// New creates instance of Server
+func New(source string) (*Database, error) {
+	u, err := utils.ParseURL(source)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := dbx.Open(u.Scheme, u.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -40,103 +42,37 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	return &Server{
-		DB:     db,
-		logger: logger,
+	return &Database{
+		db: db,
 	}, nil
 }
 
-func (s *Server) validateAuth(APIKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
-		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-	return nil
-}
-
-// Put a db entry for the provided remote segment info
-func (s *Server) Put(ctx context.Context, putReq *pb.PutIrrSegRequest) (resp *pb.PutIrrSegResponse, err error) {
-	return s.Create(ctx, putReq)
-}
-
-// Create a db entry for the provided remote segment info
-func (s *Server) Create(ctx context.Context, putReq *pb.PutIrrSegRequest) (resp *pb.PutIrrSegResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering irreparabledb Create")
-
-	APIKeyBytes := putReq.APIKey
-	if err := s.validateAuth(APIKeyBytes); err != nil {
-		return nil, err
-	}
-
-	info := putReq.Info
-	_, err = s.DB.Create_Irreparabledb(
-		ctx,
-		dbx.Irreparabledb_Segmentkey(info.Key),
-		dbx.Irreparabledb_Segmentval(info.Val),
-		dbx.Irreparabledb_PiecesLostCount(info.LostPiecesCount),
-		dbx.Irreparabledb_SegDamagedUnixSec(info.RepairUnixSec),
-		dbx.Irreparabledb_SegCreatedAt(time.Unix(info.RepairUnixSec, 0)),
-		dbx.Irreparabledb_RepairAttemptCount(info.RepairAttemptCount),
-	)
-	if err != nil {
-		return &pb.PutIrrSegResponse{
-			Status: pb.PutIrrSegResponse_FAIL,
-		}, status.Errorf(codes.Internal, err.Error())
-	}
-
-	s.logger.Debug("created in the db: " + string(info.Key))
-	return &pb.PutIrrSegResponse{
-		Status: pb.PutIrrSegResponse_OK,
-	}, nil
+// IncrementRepairAttempts a db entry for to increment the repair attempts field
+func (db *Database) IncrementRepairAttempts(ctx context.Context, segmentInfo *RemoteSegmentInfo) (err error) {
+	querystr := "INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT ( segmentpath ) DO UPDATE SET repair_attempt_count = repair_attempt_count + 1"
+	_, err = db.db.Exec(db.db.Rebind(querystr), segmentInfo.EncryptedSegmentPath, segmentInfo.EncryptedSegmentDetail, segmentInfo.LostPiecesCount, segmentInfo.RepairUnixSec, segmentInfo.RepairAttemptCount)
+	return err
 }
 
 // Get a irreparable's segment info from the db
-func (s *Server) Get(ctx context.Context, getReq *pb.GetIrrSegRequest) (resp *pb.GetIrrSegReponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering irreparabaledb Get")
-
-	APIKeyBytes := getReq.APIKey
-	err = s.validateAuth(APIKeyBytes)
+func (db *Database) Get(ctx context.Context, segmentPath []byte) (resp *RemoteSegmentInfo, err error) {
+	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return nil, err
+		return &RemoteSegmentInfo{}, err
 	}
 
-	dbSegInfo, err := s.DB.Get_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(getReq.GetKey()))
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	rmtseginfo := &pb.RmtSegInfo{
-		Key:                dbSegInfo.Segmentkey,
-		Val:                dbSegInfo.Segmentval,
-		LostPiecesCount:    dbSegInfo.PiecesLostCount,
-		RepairUnixSec:      dbSegInfo.SegDamagedUnixSec,
-		RepairAttemptCount: dbSegInfo.RepairAttemptCount,
-	}
-	return &pb.GetIrrSegReponse{
-		Info:   rmtseginfo,
-		Status: pb.GetIrrSegReponse_OK,
+	return &RemoteSegmentInfo{
+		EncryptedSegmentPath:   dbxInfo.Segmentpath,
+		EncryptedSegmentDetail: dbxInfo.Segmentdetail,
+		LostPiecesCount:        dbxInfo.PiecesLostCount,
+		RepairUnixSec:          dbxInfo.SegDamagedUnixSec,
+		RepairAttemptCount:     dbxInfo.RepairAttemptCount,
 	}, nil
 }
 
 // Delete a irreparable's segment info from the db
-func (s *Server) Delete(ctx context.Context, delReq *pb.DeleteIrrSegRequest) (resp *pb.DeleteIrrSegResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering irreparabaledb Delete")
+func (db *Database) Delete(ctx context.Context, segmentPath []byte) (err error) {
+	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 
-	APIKeyBytes := delReq.APIKey
-	err = s.validateAuth(APIKeyBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.DB.Delete_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(delReq.GetKey()))
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	return &pb.DeleteIrrSegResponse{
-		Status: pb.DeleteIrrSegResponse_OK,
-	}, nil
+	return err
 }

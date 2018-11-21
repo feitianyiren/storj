@@ -21,14 +21,18 @@ import (
 
 // Config contains configurable values for checker
 type Config struct {
-	QueueAddress string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	QueueAddress     string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
+	Interval         time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	IrreparabledbURL string        `help:"the database connection string to use" default:"file::memory:?mode=memory&cache=shared"`
 }
 
 // Initialize a Checker struct
-func (c Config) initialize(ctx context.Context, server *provider.Provider) (Checker, error) {
+func (c Config) initialize(ctx context.Context) (Checker, error) {
 	pdb := pointerdb.LoadFromContext(ctx)
-	irrdb := irreparabledb.LoadFromContext(ctx)
+	irrdb, err := irreparabledb.New(c.IrreparabledbURL)
+	if err != nil {
+		return nil, err
+	}
 	var o pb.OverlayServer
 	x := overlay.LoadServerFromContext(ctx)
 	if x == nil {
@@ -41,13 +45,12 @@ func (c Config) initialize(ctx context.Context, server *provider.Provider) (Chec
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(redisQ)
-
-	return newChecker(pdb, repairQueue, o, irrdb, 0, zap.L(), c.Interval)
+	return newChecker(pdb, repairQueue, o, irrdb, 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	check, err := c.initialize(ctx, server)
+	check, err := c.initialize(ctx)
 	if err != nil {
 		return err
 	}
