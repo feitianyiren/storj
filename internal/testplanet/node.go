@@ -33,7 +33,7 @@ type Node struct {
 	Provider  *provider.Provider
 	Kademlia  *kademlia.Kademlia
 	Overlay   *overlay.Cache
-	Client   miniogw.Config
+	Client    miniogw.Config
 
 	Dependencies []io.Closer
 }
