@@ -5,10 +5,6 @@ package database
 
 import dbx "storj.io/storj/pkg/database/dbx"
 
-// OverlayCacheDB interface for OverlayCacheDB database operations
-type OverlayCacheDB interface {
-}
-
 type overlayCacheDB struct {
 	db *dbx.DB
 }

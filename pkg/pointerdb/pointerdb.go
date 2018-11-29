@@ -24,6 +24,10 @@ import (
 	"storj.io/storj/storage"
 )
 
+// DB interface for pointer database operations
+type DB interface {
+}
+
 var (
 	mon          = monkit.Package()
 	segmentError = errs.Class("segment error")

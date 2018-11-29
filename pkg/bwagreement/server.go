@@ -18,6 +18,10 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
+// DB interface for bandwidth allocation database operations
+type DB interface {
+}
+
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
 	dbm    *dbmanager.DBManager

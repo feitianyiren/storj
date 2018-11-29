@@ -11,6 +11,10 @@ import (
 	"storj.io/storj/storage"
 )
 
+// DB interface for repair queue database operations
+type DB interface {
+}
+
 // RepairQueue is the interface for the data repair queue
 type RepairQueue interface {
 	Enqueue(qi *pb.InjuredSegment) error

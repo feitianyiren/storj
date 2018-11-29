@@ -9,6 +9,10 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// DB interface for Accounting database operations
+type DB interface {
+}
+
 // NewDb - constructor for DB
 func NewDb(databaseURL string) (*dbx.DB, error) {
 	dbURL, err := utils.ParseURL(databaseURL)

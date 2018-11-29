@@ -26,6 +26,10 @@ var (
 	errUptime       = errs.Class("statdb uptime error")
 )
 
+// DB interface for StatDB database operations
+type DB interface {
+}
+
 // Server implements the statdb RPC service
 type Server struct {
 	DB     *dbx.DB

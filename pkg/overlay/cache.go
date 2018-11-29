@@ -30,6 +30,10 @@ var ErrBucketNotFound = errs.New("Bucket not found")
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
+// DB interface for overlay cache database operations
+type DB interface {
+}
+
 // Cache is used to store overlay data in Redis
 type Cache struct {
 	DB     storage.KeyValueStore
