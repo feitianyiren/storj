@@ -303,7 +303,7 @@ func newServer(ctx context.Context) (*grpc.Server, *Server, error) {
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	s := &Server{cache: NewOverlayCache(teststore.New(), nil, nil)}
+	s := &Server{cache: NewOverlayCache(teststore.New(), nil)}
 
 	pb.RegisterOverlayServer(grpcServer, s)
 

@@ -83,11 +83,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	}
 
 	for _, node := range planet.nodes {
-		err := node.initStatDB()
-		if err != nil {
-			return nil, utils.CombineErrors(err, planet.Shutdown())
-		}
-		err = node.initOverlay(planet)
+		err := node.initOverlay(planet)
 		if err != nil {
 			return nil, utils.CombineErrors(err, planet.Shutdown())
 		}
