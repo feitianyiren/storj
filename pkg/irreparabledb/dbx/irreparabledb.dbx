@@ -9,8 +9,6 @@ model irreparabledb (
 	field repair_attempt_count int64 (updatable)
 )
 
-create irreparabledb ( )
-update irreparabledb ( where irreparabledb.segmentpath = ? )
 delete irreparabledb ( where irreparabledb.segmentpath = ? )
 read one (
   select irreparabledb 
