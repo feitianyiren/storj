@@ -5,6 +5,8 @@ package irreparabledb
 
 import (
 	"context"
+	"flag"
+	"os"
 	"testing"
 	"time"
 
@@ -12,32 +14,32 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
-// const (
-// 	// this connstring is expected to work under the storj-test docker-compose instance
-// 	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-// )
+const (
+	// this connstring is expected to work under the storj-test docker-compose instance
+	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
+)
 
-// var (
-// 	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
-// )
+var (
+	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
+)
 
-// func TestPostgres(t *testing.T) {
-// 	ctx := testcontext.New(t)
-// 	defer ctx.Cleanup()
+func TestPostgres(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-// 	if *testPostgres == "" {
-// 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
-// 	}
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
 
-// 	// creating in-memory db and opening connection
-// 	irrdb, err := New(*testPostgres)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer ctx.Check(irrdb.db.Close)
+	// creating in-memory db and opening connection
+	irrdb, err := New("postgres://kishore@localhost/postgres?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(irrdb.db.Close)
 
-// 	testDatabase(t, ctx, irrdb)
-// }
+	testDatabase(t, ctx, irrdb)
+}
 
 func TestSqlite3(t *testing.T) {
 	ctx := testcontext.New(t)

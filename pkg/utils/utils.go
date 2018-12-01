@@ -42,7 +42,7 @@ func ParseURL(s string) (*url.URL, error) {
 	if strings.HasPrefix(s, "postgres://") {
 		return &url.URL{
 			Scheme: "postgres",
-			Path:   strings.TrimPrefix(s, "postgres://"),
+			Path:   s,
 		}, nil
 	}
 	return url.Parse(s)

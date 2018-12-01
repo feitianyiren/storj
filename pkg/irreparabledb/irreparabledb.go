@@ -13,7 +13,8 @@ import (
 
 // Database implements the irreparable RPC service
 type Database struct {
-	db *dbx.DB
+	db     *dbx.DB
+	driver string
 }
 
 // RemoteSegmentInfo is info about a single entry stored in the irreparable db
@@ -43,14 +44,23 @@ func New(source string) (*Database, error) {
 	}
 
 	return &Database{
-		db: db,
+		db:     db,
+		driver: u.Scheme,
 	}, nil
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
 func (db *Database) IncrementRepairAttempts(ctx context.Context, segmentInfo *RemoteSegmentInfo) (err error) {
-	querystr := "INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT ( segmentpath ) DO UPDATE SET repair_attempt_count = repair_attempt_count + 1"
-	_, err = db.db.Exec(db.db.Rebind(querystr), segmentInfo.EncryptedSegmentPath, segmentInfo.EncryptedSegmentDetail, segmentInfo.LostPiecesCount, segmentInfo.RepairUnixSec, segmentInfo.RepairAttemptCount)
+	switch db.driver {
+	case "postgres":
+		querystr := "WITH upsert AS (UPDATE irreparabledbs SET repair_attempt_count=repair_attempt_count+1 WHERE segmentpath=? RETURNING *) INSERT INTO irreparabledbs  (segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count)  SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT * FROM upsert)"
+		_, err = db.db.Exec(db.db.Rebind(querystr), segmentInfo.EncryptedSegmentPath, segmentInfo.EncryptedSegmentPath, segmentInfo.EncryptedSegmentDetail, segmentInfo.LostPiecesCount, segmentInfo.RepairUnixSec, segmentInfo.RepairAttemptCount)
+	case "sqlite3":
+		querystr := "INSERT INTO irreparabledbs (segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT (segmentpath) DO UPDATE SET repair_attempt_count = repair_attempt_count + 1"
+		_, err = db.db.Exec(db.db.Rebind(querystr), segmentInfo.EncryptedSegmentPath, segmentInfo.EncryptedSegmentDetail, segmentInfo.LostPiecesCount, segmentInfo.RepairUnixSec, segmentInfo.RepairAttemptCount)
+	default:
+		return Error.New("unsupported driver")
+	}
 	return err
 }
 
